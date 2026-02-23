@@ -1,82 +1,78 @@
 #!/usr/bin/env bash
+# scripts/run_checks.sh
+# Run all quality checks for a Go project.
+# Exit codes: 0=all passed, 1=one or more checks failed, 2=script error.
 #
-# Run all code quality checks.
-# Adjust the check commands below to match your project's tools.
-#
-# Exit codes:
-#   0 - All checks passed
-#   1 - One or more checks failed
+# Steps (in order):
+#   1. Security scan     (scripts/security_scan.sh)
+#   2. go fmt / goimports
+#   3. go vet
+#   4. golangci-lint
+#   5. go test -race
+#   6. go build
 
 set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+FAILED=()
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-cd "$PROJECT_ROOT"
-
-echo ""
-echo "╔══════════════════════════════════════════╗"
-echo "║          Code Quality Checks             ║"
-echo "╚══════════════════════════════════════════╝"
-echo ""
-
-FAILED_CHECKS=()
-PASSED_CHECKS=()
-
-run_check() {
-    local name=$1
-    local command=$2
-
-    echo -e "${BLUE}▶ Running: $name${NC}"
-    echo "──────────────────────────────────────────"
-
-    if eval "$command"; then
-        echo -e "${GREEN}✓ $name passed${NC}"
-        PASSED_CHECKS+=("$name")
-    else
-        echo -e "${RED}✗ $name failed${NC}"
-        FAILED_CHECKS+=("$name")
-    fi
-    echo ""
+run_step() {
+  local name="$1"
+  shift
+  echo ""
+  echo "==> $name"
+  if "$@"; then
+    echo "    ✓ $name passed"
+  else
+    echo "    ✗ $name FAILED"
+    FAILED+=("$name")
+  fi
 }
 
-# ── Checks ────────────────────────────────────────────────
-# Adjust these to match your project's tools and source paths.
+cd "$REPO_ROOT"
 
-run_check "Security Scan"          "$SCRIPT_DIR/security_scan.sh"            || true
-run_check "Black (Formatting)"     "black --check --diff src/ tests/"        || true
-run_check "Ruff (Linting)"         "ruff check src/ tests/"                  || true
-run_check "MyPy (Type Checking)"   "mypy src/"                               || true
-run_check "Pytest (Unit Tests)"    "pytest -v --tb=short"                    || true
-
-# ── Summary ───────────────────────────────────────────────
-echo "══════════════════════════════════════════"
-echo "                 SUMMARY"
-echo "══════════════════════════════════════════"
-echo ""
-
-if [ ${#PASSED_CHECKS[@]} -gt 0 ]; then
-    echo -e "${GREEN}Passed (${#PASSED_CHECKS[@]}):${NC}"
-    for check in "${PASSED_CHECKS[@]}"; do
-        echo -e "  ${GREEN}✓${NC} $check"
-    done
-    echo ""
+# 1. Security scan
+if [[ -x scripts/security_scan.sh ]]; then
+  run_step "Security scan" bash scripts/security_scan.sh
+else
+  echo "==> Security scan: scripts/security_scan.sh not found, skipping"
 fi
 
-if [ ${#FAILED_CHECKS[@]} -gt 0 ]; then
-    echo -e "${RED}Failed (${#FAILED_CHECKS[@]}):${NC}"
-    for check in "${FAILED_CHECKS[@]}"; do
-        echo -e "  ${RED}✗${NC} $check"
-    done
-    echo ""
-    echo -e "${RED}Some checks failed. Please fix the issues above.${NC}"
+# 2. Format check
+run_step "goimports (format)" bash -c '
+  unformatted=$(goimports -l . 2>/dev/null)
+  if [[ -n "$unformatted" ]]; then
+    echo "Unformatted files:"
+    echo "$unformatted"
     exit 1
+  fi
+'
+
+# 3. go vet
+run_step "go vet" go vet ./...
+
+# 4. golangci-lint
+if command -v golangci-lint &>/dev/null; then
+  run_step "golangci-lint" golangci-lint run ./...
 else
-    echo -e "${GREEN}All checks passed! 🎉${NC}"
-    exit 0
+  echo "==> golangci-lint: not installed, skipping (install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)"
+fi
+
+# 5. go test -race
+run_step "go test -race" go test -race -count=1 ./...
+
+# 6. go build
+run_step "go build" go build ./...
+
+# Summary
+echo ""
+if [[ ${#FAILED[@]} -eq 0 ]]; then
+  echo "All checks passed."
+  exit 0
+else
+  echo "The following checks failed:"
+  for f in "${FAILED[@]}"; do
+    echo "  - $f"
+  done
+  exit 1
 fi
