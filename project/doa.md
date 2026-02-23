@@ -346,3 +346,95 @@ Open PR
 If you haven't figured it out yet, these rules are designed to help us work together most efficiently, with the fewest surprises, and the smallest blast radius when things inevitably go wrong.
 
 Just remember, if you think you know something I don't, tell me. If you think I know something you don't or you have a question, stop and ask.
+---
+
+## Appendix: Go Stack
+
+This section supplements the DOA for projects using Go. It is authoritative
+for any Go project and must be followed alongside the base DOA rules above.
+
+### Planning phase additions
+
+During planning, in addition to the standard decisions, the following must be
+decided and recorded in project.md:
+
+- Go module path (e.g. `github.com/<user>/<repo>`)
+- Go version (pinned in `go.mod`)
+- Whether `testify` or standard `testing` is used for assertions
+- HTTP router/framework if applicable (stdlib `net/http`, chi, gin, etc.)
+- Whether the project requires a multi-stage Docker build
+
+### Coding style
+
+Follow the [Google Go Style Guide](https://google.github.io/styleguide/go/).
+In addition:
+
+- All exported symbols (types, functions, methods, constants) require godoc
+  comments. No exceptions.
+- Interfaces are defined at the **consumer** side, not the producer. Keep them
+  small — one or two methods is ideal.
+- Use `context.Context` as the first argument of any function that may block,
+  call an external service, or respect cancellation.
+- No global mutable state. Inject dependencies through constructors or function
+  arguments.
+- Pure functions are preferred. They are easier to test.
+
+### Error handling
+
+- Wrap errors with `fmt.Errorf("component action: %w", err)` so callers can
+  use `errors.Is` / `errors.As`.
+- Never swallow errors silently. If you choose to ignore an error, add a
+  comment explaining why.
+- Prefer typed sentinel errors (`var ErrNotFound = errors.New(...)`) over
+  string comparisons.
+
+### Testing
+
+- Always run `go test -race ./...`. Running without `-race` is not acceptable.
+- Use table-driven tests as the default pattern.
+- Test files live alongside source (`foo_test.go` next to `foo.go`).
+- Integration tests that require external services should be guarded with
+  `testing.Short()` or a build tag.
+
+### Formatting and linting
+
+- `goimports -w .` must be run before every commit. This is non-negotiable in Go.
+- `golangci-lint run ./...` must produce zero errors and zero warnings.
+- `go vet ./...` must be clean.
+
+### Security
+
+- `gosec ./...` is part of the `send 'er` gate. All high-severity findings
+  must be resolved before pushing.
+- API keys and secrets are loaded exclusively from environment variables.
+  Never hardcode credentials.
+- Sanitize all user-provided input before passing to external services
+  (LLM APIs, database queries, shell commands).
+
+### `send 'er` gate (Go)
+
+When the human says "send 'er", execute in this order:
+
+1. `gosec ./...` — report all findings. Block on HIGH severity.
+2. `goimports -l .` — must produce no output (all files formatted).
+3. `go vet ./...` — must be clean.
+4. `golangci-lint run ./...` — must be clean.
+5. `go test -race -count=1 ./...` — all tests must pass.
+6. `go build ./...` — must succeed.
+7. Add context entry via `project/scripts/add-context`.
+8. Add session summary via `project/scripts/add-session-entry --type summary`.
+9. Show: branch name, files changed, commits to push.
+10. Prompt: "Ready to push to origin? (y/n)" — wait for confirmation.
+11. Push to origin. Open a pull request.
+
+### AI Session Logging
+
+For any project using agentic development tools (Claude Code, Codex, etc.),
+`AI_SESSION.md` is a required artifact subject to the same rules as
+`context.md`:
+
+- Managed exclusively through `project/scripts/add-session-entry`.
+- Append-only. Entries are never edited after being written.
+- Every prompt received from a human must be logged verbatim before work begins.
+- Every meaningful unit of work must be followed by a summary entry.
+- Included in every commit alongside the work it documents.
