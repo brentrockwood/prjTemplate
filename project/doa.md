@@ -180,6 +180,10 @@ It is inevitable that these will happen once in a while. In most cases we will c
 
 We should strive to keep user-facing documentation like `README.md`, API docs, etc. continuously up to date with the truth in the code. They are everyone's responsibility. As mentioned before, these are artifacts just like code and do not influence our operational choices.
 
+### Notifications
+
+The template contains a script, `/scripts/notify` which takes a single argument. It notifies the human that something is required. If you complete a task, need approval, or anything else that requires human intervention and the user has not responded in one minute, execute the notify script with a few words to indicate your status.
+
 ---
 
 ## After every interaction
