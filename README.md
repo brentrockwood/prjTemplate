@@ -1,3 +1,6 @@
+> # DEPRECATED: This repository is no longer maintained. Please see [doa-framework](https://github.com/brentrockwood/doa-framework) instead.
+---
+
 # [Project Name]
 
 [One or two sentences describing what this project does and why it exists.]
