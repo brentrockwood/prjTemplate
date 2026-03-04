@@ -143,6 +143,10 @@ Wherever appropriate, use pure functions. They are easier to test.
 - Avoid catching errors unless there is a clear recovery path.
 - Log with enough context to reconstruct failure after the fact.
 
+### Source code location 
+
+All new source code goes in ./src unless an explicit decision recorded in project.md specifies a different location. Do not create new top-level directories without human authorization.
+
 ### Dependencies
 
 If a new dependency becomes necessary that has not previously been human-approved, follow these rules:
@@ -179,10 +183,6 @@ It is inevitable that these will happen once in a while. In most cases we will c
 ### Documentation
 
 We should strive to keep user-facing documentation like `README.md`, API docs, etc. continuously up to date with the truth in the code. They are everyone's responsibility. As mentioned before, these are artifacts just like code and do not influence our operational choices.
-
-### Notifications
-
-The template contains a script, `/scripts/notify` which takes a single argument. It notifies the human that something is required. If you complete a task, need approval, or anything else that requires human intervention and the user has not responded in one minute, execute the notify script with a few words to indicate your status.
 
 ---
 
@@ -287,6 +287,10 @@ The phrase **send 'er** is a command which has been chosen because it is unlikel
    - Only proceed if confirmed
 6. Push to origin.
 7. Open a pull request for the change.
+
+## Notifications
+
+The template contains a script, `/scripts/notify` which takes a single unnamed message argument. It notifies the human that something is required. If you complete a task, need approval, or anything else that requires human intervention and the user has not responded in one minute, execute the notify script with a short message to indicate your status.
 
 ---
 
